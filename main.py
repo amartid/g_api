@@ -1,17 +1,19 @@
 import uvicorn
-from fastapi import FastAPI,Body, HTTPException, Depends
-from app.model import PostSchema
-from app.model import PostSchema, UserSchema, UserLoginSchema
-from app.auth.jwt_handler import signJWT
-from app.auth.jwt_bearer import JWTBearer
-import asyncio
+from fastapi import FastAPI, Body, HTTPException, Depends
+from starlette.responses import HTMLResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 import logging
-
-# Run the development server (like uvicorn main:app --reload).
+from database.database import SessionLocal, init_db
+from database.models import Post, User
+from app.model import PostSchema, UserSchema, UserLoginSchema
+from app.auth.jwt_handler import signJWT, extract_jwt_username
+from app.auth.jwt_bearer import JWTBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Configure the logger
 logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    format='%(asctime)s - %(name=s) - %(levelname=s) - %(message=s)',
                     handlers=[
                         logging.FileHandler("app.log"),
                         logging.StreamHandler()
@@ -21,92 +23,202 @@ logger = logging.getLogger(__name__)
 # Create a FastAPI "instance"
 app = FastAPI()
 
+# Dependency to get the DB session
+async def get_db():
+    async with SessionLocal() as session:
+        yield session
 
-posts = [
-    {
-        "id": 1,
-        "title": "Penguins 🐧 ",
-        "text": "Penguins are a group of aquatic flightless birds."
-    },
-    {
-        "id": 2,
-        "title": "Tigers 🐯 ",
-        "text": "Tigers are the largest living cat species and a memeber of the genus panthera."
-    },
-    {
-        "id": 3,
-        "title": "Koalas 🐨",
-        "text": "Koala is arboreal herbivorous maruspial native to Australia."
-    },
-]
+@app.on_event("startup")
+async def on_startup():
+    await init_db()
 
-users = []
-
-# Get - for testing
-@app.get("/", tags = ["test"]) # The Homepage
+@app.get("/", tags=["test"], response_class=HTMLResponse)
 async def root():
-    logger.info("Root endpoint called")
-    return {"message": "This is geodata API"}
+    html_content = """
+    <html>
+    <head>
+        <title>Root</title>
+    </head>
+    <body>
+        <h1>Welcome to the Geodata API!</h1>
+        <p>This is an HTML representation of the root endpoint.</p>
+        <p><a href="/docs">Click here to go to the documentation</a></p>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
-# Get Posts
-@app.get("/posts", tags = ["posts"]) # The Homepage
-async def get_posts():
+@app.get("/posts", tags=["posts"])
+async def get_posts(db: AsyncSession = Depends(get_db)):
     logger.info("Posts endpoint called")
+    result = await db.execute(select(Post))
+    posts = result.scalars().all()
     return posts
 
-# Get single post {id}
-@app.get("/posts/{id}", tags = ["posts"]) # The Homepage
-async def get_post(id: int):
-    logger.info("Post/{id} endpoint called")
-    if id > len(posts):
-        return{"error": "Post not found"}
-    for post in posts:
-        if post["id"] == id:
-            return {
-                "data": post}
-        
-# Handler for creating a post
-@app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
-async def create_post(post: PostSchema):
-    logger.info("Post endpoint called")
-
-    # Assign an id to the new post
-    post.id = len(posts) + 1
-    
-    # Append the post to the list
-    posts.append(post.dict())
-    
-    return {"data": "Post Added successfully"}
-
-
-# User sign-up endpoint
-@app.post("/user/sign_up", tags=["user"])
-async def create_user(user: UserSchema = Body(default=None)):
-    logger.info("User sign-up endpoint called")
-    users.append(user)
-    return signJWT(user.email)
-
-def check_user(data: UserLoginSchema):
-    for user in users:
-        if user.email == data.email and user.password == data.password:
-            return True
-    return False
-
-# User login endpoint
-@app.post("/user/login", tags=["user"])
-async def user_login(user: UserLoginSchema = Body(...)):
-    logger.info("User login endpoint called")
-    if check_user(user):
-        return signJWT(user.email)
-    raise HTTPException(status_code=401, detail="Invalid email or password")
-
+@app.get("/posts/{id}", tags=["posts"])
+async def get_post(id: int, db: AsyncSession = Depends(get_db)):
+    logger.info(f"Post/{id} endpoint called")
+    result = await db.execute(select(Post).filter(Post.id == id))
+    post = result.scalar_one_or_none()
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
 
 @app.get("/error")
 async def error_endpoint():
     logger.error("Error endpoint called")
     raise HTTPException(status_code=400, detail="This is a sample error")
 
+@app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
+async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
+    # Get the username from the JWT token
+    username = extract_jwt_username(jwt_token)
 
+    # Find the user by username
+    result = await db.execute(select(User).filter(User.email == username))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Create the new post and associate it with the user
+    new_post = Post(title=post.title, text=post.text, owner_id=user.id)
+    db.add(new_post)
+    await db.commit()
+    await db.refresh(new_post)
+
+    return {"message": "Post created successfully", "post_id": new_post.id}
+
+@app.post("/user/sign_up", tags=["user"])
+async def create_user(user: UserSchema = Body(default=None), db: AsyncSession = Depends(get_db)):
+    """
+    Registers a new user.
+    :param user: The user data.
+    :param db: The database session.
+    :return: A JWT token for the newly created user.
+    """
+    logger.info("User sign-up endpoint called for email: %s", user.email)
+    new_user = User(email=user.email, password=user.password)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    logger.info(f"User created successfully with email: {user.email}")
+    return signJWT(user.email)
+
+async def check_user(data: UserLoginSchema, db: AsyncSession):
+    """
+    Validates user credentials.
+    :param data: The login data.
+    :param db: The database session.
+    :return: A status indicating whether the credentials are valid.
+    """
+    result = await db.execute(select(User).filter(User.email == data.email))
+    user = result.scalar_one_or_none()
+    
+    if user:
+        if user.password == data.password:
+            return {"status": True, "message": "Valid credentials"}
+        else:
+            return {"status": False, "message": "Invalid password"}
+    else:
+        return {"status": False, "message": "User does not exist"}
+
+@app.post("/user/login", tags=["user"])
+async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depends(get_db)):
+    """
+    Authenticates a user and returns a JWT token.
+    :param user: The login data.
+    :param db: The database session.
+    :return: A JWT token if the credentials are valid.
+    """
+    logger.info("User login endpoint called for email: %s", user.email)
+    check_result = await check_user(user, db)
+    
+    if check_result["status"]:
+        logger.info("User authenticated successfully: %s", user.email)
+        return signJWT(user.email)
+    else:
+        logger.warning("User authentication failed for email: %s. Reason: %s", user.email, check_result["message"])
+        raise HTTPException(status_code=401, detail=check_result["message"])
+
+@app.get("/user/{user_id}/posts", tags=["posts"])
+async def get_user_posts(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Retrieve posts by user ID.
+    :param user_id: The ID of the user.
+    :param db: The database session.
+    :return: A list of posts associated with the user.
+    """
+    logger.info(f"Fetching posts for user ID: {user_id}")
+    
+    # Query the database for posts associated with the user ID
+    result = await db.execute(select(Post).filter(Post.owner_id == user_id))
+    posts = result.scalars().all()
+    
+    if not posts:
+        raise HTTPException(status_code=404, detail="No posts found for this user")
+    
+    return posts
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+
+
+
+
+
+
+
+
+'''
+@app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
+async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
+    # Get the username from the JWT token
+    username = JWTBearer.extract_jwt_username(jwt_token)
+
+    # Find the user by username
+    user = await db.execute(select(User).filter(User.username == username))
+    user = user.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Create the new post and associate it with the user
+    new_post = Post(title=post.title, text=post.text, owner_id=user.id)
+    db.add(new_post)
+    await db.commit()
+    await db.refresh(new_post)
+
+    return {"message": "Post created successfully", "post_id": new_post.id}
+
+@app.post("/user/sign_up", tags=["user"])
+async def create_user(user: UserSchema = Body(default=None), db: AsyncSession = Depends(get_db)):
+    logger.info("User sign-up endpoint called")
+    new_user = User(email=user.email, password=user.password)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return signJWT(user.email)
+
+async def check_user(data: UserLoginSchema, db: AsyncSession):
+    result = await db.execute(select(User).filter(User.email == data.email))
+    user = result.scalar_one_or_none()
+    if user:
+        if user.password == data.password:
+            return {"status": True, "message": "Valid credentials"}
+        else:
+            return {"status": False, "message": "Invalid password"}
+    else:
+        return {"status": False, "message": "User does not exist"}
+
+@app.post("/user/login", tags=["user"])
+async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depends(get_db)):
+    logger.info("User login endpoint called")
+    check_result = await check_user(user, db)
+    if check_result["status"]:
+        return signJWT(user.email)
+    else:
+        raise HTTPException(status_code=401, detail=check_result["message"])
+'''

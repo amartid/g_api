@@ -1,8 +1,6 @@
-#The goal of this file is to check whether the reques tis authorized or not [ verification of the proteced route]
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .jwt_handler import decodeJWT
-
+from app.auth import jwt_handler
 
 class JWTBearer(HTTPBearer):
     def __init__(self, auto_error: bool = True):
@@ -20,12 +18,11 @@ class JWTBearer(HTTPBearer):
             raise HTTPException(status_code=403, detail="Invalid authorization code.")
 
     def verify_jwt(self, jwtoken: str) -> bool:
-        isTokenValid: bool = False
-
+        is_token_valid: bool = False
         try:
-            payload = decodeJWT(jwtoken)
+            payload = jwt_handler.decodeJWT(jwtoken)
         except:
             payload = None
         if payload:
-            isTokenValid = True
-        return isTokenValid
+            is_token_valid = True
+        return is_token_valid

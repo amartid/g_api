@@ -1,45 +1,62 @@
-# This file is responsible for signing , encoding , decoding and returning JWTS
 import time
-from typing import Dict
+from typing import Dict, Union
 import jwt
 from decouple import config
+import logging
 
+# Load environment variables
 JWT_SECRET_KEY = config('SECRET', default='secret')
 DEBUG = config('DEBUG', default=True, cast=bool)
-# algorithm used to sign the token
+
+# Algorithm used to sign the JWT token
 JWT_ALGORITHM = 'HS256'
 
-print(f"Secret Key: {JWT_SECRET_KEY}")
-print(f"Debug Mode: {DEBUG}")
-print(f"Secret Algorithm: {JWT_ALGORITHM}")
+# Logging configuration
+logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO)
+logger = logging.getLogger(__name__)
 
-
-
-
-
-# create function to return generated tokens (JWTs)
-def create_access_token(token: str):
-    return {
-        "access token": token
-        # what happens is that these JSN tokens are encoded into str
-    }
-    
-
-# Function used for signing the JWT string
-def signJWT(userID: str):
+def signJWT(username: str, expiration: int = 3600) -> str:
+    """
+    Signs a JWT token with the given username and expiration time.
+    :param username: The username to include in the token.
+    :param expiration: The expiration time in seconds. Defaults to 3600 seconds (1 hour).
+    :return: Encoded JWT token as a string.
+    """
     payload = {
-        "userID" : userID,
-        "expiry" : time.time() + 600
+        "username": username,
+        "exp": time.time() + expiration
     }
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    # we pass the token as input in the token response
-    return create_access_token(token)
+    logger.debug(f"Generated token for user {username}")
+    return token
 
-# Function that 
-def decodeJWT(token: str):
+def decodeJWT(token: str) -> Union[Dict, None]:
+    """
+    Decodes a JWT token and returns the payload.
+    :param token: The JWT token to decode.
+    :return: The decoded payload if the token is valid, otherwise an error message.
+    """
     try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        logger.debug(f"Decoded token payload: {payload}")
+        return payload
+    except jwt.ExpiredSignatureError:
+        logger.error("Token has expired")
+        return {"error": "Token has expired"}
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid token: {e}")
+        return {"error": "Invalid token"}
+    except Exception as e:
+        logger.error(f"Error occurred while decoding JWT: {e}")
+        return None
 
-        decode_token = jwt.decode(token, JWT_SECRET_KEY,algorithms=JWT_ALGORITHM)
-        return decode_token if decode_token["expires"] >= time.time() else None
-    except:
-        return {}
+def extract_jwt_username(token: str) -> str:
+    """
+    Extracts the username from a JWT token.
+    :param token: The JWT token.
+    :return: The username from the token payload.
+    """
+    payload = decodeJWT(token)
+    if "username" in payload:
+        return payload["username"]
+    return ""

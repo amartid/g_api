@@ -1,42 +1,17 @@
-from pydantic import BaseModel, Field, EmailStr
+# app/model.py
 
-
-# a schema for the post , and a schema for the users
-
+from pydantic import BaseModel
 
 class PostSchema(BaseModel):
-    id: int = Field(default=None)
-    title: str = Field(default=None)
-    content: str = Field(default=None)
-    class Config:
-        schema_extra = {
-            "post_demo": {
-                "title": "title about animals ",
-                "content": "content about animals "
-            }
-        }
+    title: str
+    text: str
+    
+    # No need to include owner_id here since it will be assigned automatically
 
 class UserSchema(BaseModel):
-    fullname : str = Field (default=None)
-    email : EmailStr = Field(default=None)
-    password: str = Field(default=None)
-    class Config:
-        the_schema = {
-            "user_demo": {
-                "name": "Bek",
-                "email": "help@bek.com",
-                "password": "123"
-            }
-        }
-
+    email: str
+    password: str
 
 class UserLoginSchema(BaseModel):
-    email : EmailStr = Field(default=None)
-    password: str = Field(default=None)
-    class Config:
-        the_schema = {
-            "user_demo": {
-                "email": "help@bek.com",
-                "password": "123"
-            }
-        }
+    email: str
+    password: str

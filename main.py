@@ -4,22 +4,15 @@ from starlette.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import logging
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from database.database import SessionLocal, init_db
 from database.models import Post, User
 from app.model import PostSchema, UserSchema, UserLoginSchema
 from app.auth.jwt_handler import signJWT, extract_jwt_username
 from app.auth.jwt_bearer import JWTBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-
-# Configure the logger
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name=s) - %(levelname=s) - %(message=s)',
-                    handlers=[
-                        logging.FileHandler("app.log"),
-                        logging.StreamHandler()
-                    ])
-logger = logging.getLogger(__name__)
-
+from datetime import datetime
+import time
 # Create a FastAPI "instance"
 app = FastAPI()
 
@@ -31,6 +24,33 @@ async def get_db():
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+
+
+
+# Configure logging
+def configure_logger():
+    # Create a logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    # Create a file handler
+    log_filename = f"app_{time.strftime('%Y%m%d_%H%M%S')}.log"  # Append timestamp to log filename
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setLevel(logging.DEBUG)
+
+    # Create a formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+
+    # Add the file handler to the logger
+    logger.addHandler(file_handler)
+
+    return logger
+
+logger = configure_logger()
+
+# Test log message
+logger.info("Application started")
 
 @app.get("/", tags=["test"], response_class=HTMLResponse)
 async def root():

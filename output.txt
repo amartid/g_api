@@ -9,7 +9,6 @@ from database.database import SessionLocal, init_db
 from database.models import Post, User
 from app.model import PostSchema, UserSchema, UserLoginSchema
 from app.auth.jwt_handler import signJWT, extract_jwt_username
-
 from app.auth.jwt_bearer import JWTBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,15 +64,20 @@ async def get_post(id: int, db: AsyncSession = Depends(get_db)):
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
     return post
-'''
+
+@app.get("/error")
+async def error_endpoint():
+    logger.error("Error endpoint called")
+    raise HTTPException(status_code=400, detail="This is a sample error")
+
 @app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
 async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
     # Get the username from the JWT token
-    username = JWTBearer.extract_jwt_username(jwt_token)
+    username = extract_jwt_username(jwt_token)
 
     # Find the user by username
-    user = await db.execute(select(User).filter(User.username == username))
-    user = user.scalar_one_or_none()
+    result = await db.execute(select(User).filter(User.email == username))
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -83,72 +87,6 @@ async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), d
     await db.commit()
     await db.refresh(new_post)
 
-    return {"message": "Post created successfully", "post_id": new_post.id}
-
-@app.post("/user/sign_up", tags=["user"])
-async def create_user(user: UserSchema = Body(default=None), db: AsyncSession = Depends(get_db)):
-    logger.info("User sign-up endpoint called")
-    new_user = User(email=user.email, password=user.password)
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    return signJWT(user.email)
-
-async def check_user(data: UserLoginSchema, db: AsyncSession):
-    result = await db.execute(select(User).filter(User.email == data.email))
-    user = result.scalar_one_or_none()
-    if user:
-        if user.password == data.password:
-            return {"status": True, "message": "Valid credentials"}
-        else:
-            return {"status": False, "message": "Invalid password"}
-    else:
-        return {"status": False, "message": "User does not exist"}
-
-@app.post("/user/login", tags=["user"])
-async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depends(get_db)):
-    logger.info("User login endpoint called")
-    check_result = await check_user(user, db)
-    if check_result["status"]:
-        return signJWT(user.email)
-    else:
-        raise HTTPException(status_code=401, detail=check_result["message"])
-'''
-
-
-@app.get("/error")
-async def error_endpoint():
-    logger.error("Error endpoint called")
-    raise HTTPException(status_code=400, detail="This is a sample error")
-
-
-
-
-
-app = FastAPI()
-
-@app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
-async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
-    """
-    Creates a new post. Requires JWT authentication.
-    :param post: The post data.
-    :param jwt_token: The JWT token.
-    :param db: The database session.
-    :return: A success message and the ID of the created post.
-    """
-    username = extract_jwt_username(jwt_token)
-    user = await db.execute(select(User).filter(User.username == username))
-    user = user.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    new_post = Post(title=post.title, text=post.text, owner_id=user.id)
-    db.add(new_post)
-    await db.commit()
-    await db.refresh(new_post)
-
-    logger.info(f"Post created successfully for user {username} with post ID {new_post.id}")
     return {"message": "Post created successfully", "post_id": new_post.id}
 
 @app.post("/user/sign_up", tags=["user"])
@@ -204,23 +142,87 @@ async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depen
         logger.warning("User authentication failed for email: %s. Reason: %s", user.email, check_result["message"])
         raise HTTPException(status_code=401, detail=check_result["message"])
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+@app.get("/user/{user_id}/posts", tags=["posts"])
+async def get_user_posts(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Retrieve posts by user ID.
+    :param user_id: The ID of the user.
+    :param db: The database session.
+    :return: A list of posts associated with the user.
+    """
+    logger.info(f"Fetching posts for user ID: {user_id}")
+    
+    # Query the database for posts associated with the user ID
+    result = await db.execute(select(Post).filter(Post.owner_id == user_id))
+    posts = result.scalars().all()
+    
+    if not posts:
+        raise HTTPException(status_code=404, detail="No posts found for this user")
+    
+    return posts
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
- 
+
+
+
+
+
+
+
+
+
+
+
+'''
+@app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
+async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
+    # Get the username from the JWT token
+    username = JWTBearer.extract_jwt_username(jwt_token)
+
+    # Find the user by username
+    user = await db.execute(select(User).filter(User.username == username))
+    user = user.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Create the new post and associate it with the user
+    new_post = Post(title=post.title, text=post.text, owner_id=user.id)
+    db.add(new_post)
+    await db.commit()
+    await db.refresh(new_post)
+
+    return {"message": "Post created successfully", "post_id": new_post.id}
+
+@app.post("/user/sign_up", tags=["user"])
+async def create_user(user: UserSchema = Body(default=None), db: AsyncSession = Depends(get_db)):
+    logger.info("User sign-up endpoint called")
+    new_user = User(email=user.email, password=user.password)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return signJWT(user.email)
+
+async def check_user(data: UserLoginSchema, db: AsyncSession):
+    result = await db.execute(select(User).filter(User.email == data.email))
+    user = result.scalar_one_or_none()
+    if user:
+        if user.password == data.password:
+            return {"status": True, "message": "Valid credentials"}
+        else:
+            return {"status": False, "message": "Invalid password"}
+    else:
+        return {"status": False, "message": "User does not exist"}
+
+@app.post("/user/login", tags=["user"])
+async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depends(get_db)):
+    logger.info("User login endpoint called")
+    check_result = await check_user(user, db)
+    if check_result["status"]:
+        return signJWT(user.email)
+    else:
+        raise HTTPException(status_code=401, detail=check_result["message"])
+''' 
 D:\Desktop\g_api\main.py 
 import uvicorn
 from fastapi import FastAPI, Body, HTTPException, Depends
@@ -232,7 +234,6 @@ from database.database import SessionLocal, init_db
 from database.models import Post, User
 from app.model import PostSchema, UserSchema, UserLoginSchema
 from app.auth.jwt_handler import signJWT, extract_jwt_username
-
 from app.auth.jwt_bearer import JWTBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -288,15 +289,20 @@ async def get_post(id: int, db: AsyncSession = Depends(get_db)):
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
     return post
-'''
+
+@app.get("/error")
+async def error_endpoint():
+    logger.error("Error endpoint called")
+    raise HTTPException(status_code=400, detail="This is a sample error")
+
 @app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
 async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
     # Get the username from the JWT token
-    username = JWTBearer.extract_jwt_username(jwt_token)
+    username = extract_jwt_username(jwt_token)
 
     # Find the user by username
-    user = await db.execute(select(User).filter(User.username == username))
-    user = user.scalar_one_or_none()
+    result = await db.execute(select(User).filter(User.email == username))
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -306,72 +312,6 @@ async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), d
     await db.commit()
     await db.refresh(new_post)
 
-    return {"message": "Post created successfully", "post_id": new_post.id}
-
-@app.post("/user/sign_up", tags=["user"])
-async def create_user(user: UserSchema = Body(default=None), db: AsyncSession = Depends(get_db)):
-    logger.info("User sign-up endpoint called")
-    new_user = User(email=user.email, password=user.password)
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    return signJWT(user.email)
-
-async def check_user(data: UserLoginSchema, db: AsyncSession):
-    result = await db.execute(select(User).filter(User.email == data.email))
-    user = result.scalar_one_or_none()
-    if user:
-        if user.password == data.password:
-            return {"status": True, "message": "Valid credentials"}
-        else:
-            return {"status": False, "message": "Invalid password"}
-    else:
-        return {"status": False, "message": "User does not exist"}
-
-@app.post("/user/login", tags=["user"])
-async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depends(get_db)):
-    logger.info("User login endpoint called")
-    check_result = await check_user(user, db)
-    if check_result["status"]:
-        return signJWT(user.email)
-    else:
-        raise HTTPException(status_code=401, detail=check_result["message"])
-'''
-
-
-@app.get("/error")
-async def error_endpoint():
-    logger.error("Error endpoint called")
-    raise HTTPException(status_code=400, detail="This is a sample error")
-
-
-
-
-
-app = FastAPI()
-
-@app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
-async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
-    """
-    Creates a new post. Requires JWT authentication.
-    :param post: The post data.
-    :param jwt_token: The JWT token.
-    :param db: The database session.
-    :return: A success message and the ID of the created post.
-    """
-    username = extract_jwt_username(jwt_token)
-    user = await db.execute(select(User).filter(User.username == username))
-    user = user.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    new_post = Post(title=post.title, text=post.text, owner_id=user.id)
-    db.add(new_post)
-    await db.commit()
-    await db.refresh(new_post)
-
-    logger.info(f"Post created successfully for user {username} with post ID {new_post.id}")
     return {"message": "Post created successfully", "post_id": new_post.id}
 
 @app.post("/user/sign_up", tags=["user"])
@@ -427,22 +367,97 @@ async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depen
         logger.warning("User authentication failed for email: %s. Reason: %s", user.email, check_result["message"])
         raise HTTPException(status_code=401, detail=check_result["message"])
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+@app.get("/user/{user_id}/posts", tags=["posts"])
+async def get_user_posts(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Retrieve posts by user ID.
+    :param user_id: The ID of the user.
+    :param db: The database session.
+    :return: A list of posts associated with the user.
+    """
+    logger.info(f"Fetching posts for user ID: {user_id}")
+    
+    # Query the database for posts associated with the user ID
+    result = await db.execute(select(Post).filter(Post.owner_id == user_id))
+    posts = result.scalars().all()
+    
+    if not posts:
+        raise HTTPException(status_code=404, detail="No posts found for this user")
+    
+    return posts
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+
+
+
+
+
+
+
+
+'''
+@app.post("/posts", dependencies=[Depends(JWTBearer())], tags=["posts"])
+async def create_post(post: PostSchema, jwt_token: str = Depends(JWTBearer()), db: AsyncSession = Depends(get_db)):
+    # Get the username from the JWT token
+    username = JWTBearer.extract_jwt_username(jwt_token)
+
+    # Find the user by username
+    user = await db.execute(select(User).filter(User.username == username))
+    user = user.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Create the new post and associate it with the user
+    new_post = Post(title=post.title, text=post.text, owner_id=user.id)
+    db.add(new_post)
+    await db.commit()
+    await db.refresh(new_post)
+
+    return {"message": "Post created successfully", "post_id": new_post.id}
+
+@app.post("/user/sign_up", tags=["user"])
+async def create_user(user: UserSchema = Body(default=None), db: AsyncSession = Depends(get_db)):
+    logger.info("User sign-up endpoint called")
+    new_user = User(email=user.email, password=user.password)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return signJWT(user.email)
+
+async def check_user(data: UserLoginSchema, db: AsyncSession):
+    result = await db.execute(select(User).filter(User.email == data.email))
+    user = result.scalar_one_or_none()
+    if user:
+        if user.password == data.password:
+            return {"status": True, "message": "Valid credentials"}
+        else:
+            return {"status": False, "message": "Invalid password"}
+    else:
+        return {"status": False, "message": "User does not exist"}
+
+@app.post("/user/login", tags=["user"])
+async def user_login(user: UserLoginSchema = Body(...), db: AsyncSession = Depends(get_db)):
+    logger.info("User login endpoint called")
+    check_result = await check_user(user, db)
+    if check_result["status"]:
+        return signJWT(user.email)
+    else:
+        raise HTTPException(status_code=401, detail=check_result["message"])
+''' 
+D:\Desktop\g_api\app\config.py 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET")
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+REFRESH_TOKEN_EXPIRE_MINUTES = int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES"))
  
 D:\Desktop\g_api\app\model.py 
 # app/model.py
@@ -464,53 +479,34 @@ class UserLoginSchema(BaseModel):
     password: str
  
 D:\Desktop\g_api\app\auth\jwt_bearer.py 
-from typing import Union
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .jwt_handler import decodeJWT, extract_jwt_username
-import logging
-from decouple import config
-
-# Logging configuration
-logging.basicConfig(level=logging.DEBUG if config('DEBUG', default=True, cast=bool) else logging.INFO)
-logger = logging.getLogger(__name__)
+from app.auth import jwt_handler
 
 class JWTBearer(HTTPBearer):
-    """
-    Custom HTTPBearer class for JWT authentication.
-    """
     def __init__(self, auto_error: bool = True):
         super(JWTBearer, self).__init__(auto_error=auto_error)
 
     async def __call__(self, request: Request):
         credentials: HTTPAuthorizationCredentials = await super(JWTBearer, self).__call__(request)
         if credentials:
-            if credentials.scheme != "Bearer":
+            if not credentials.scheme == "Bearer":
                 raise HTTPException(status_code=403, detail="Invalid authentication scheme.")
-            payload = self.verify_jwt(credentials.credentials)
-            if not payload:
+            if not self.verify_jwt(credentials.credentials):
                 raise HTTPException(status_code=403, detail="Invalid token or expired token.")
             return credentials.credentials
         else:
             raise HTTPException(status_code=403, detail="Invalid authorization code.")
 
-    def verify_jwt(self, jwtoken: str) -> Union[bool, dict]:
-        """
-        Verifies a JWT token.
-        :param jwtoken: The JWT token to verify.
-        :return: The payload if the token is valid, otherwise False.
-        """
-        payload = None
+    def verify_jwt(self, jwtoken: str) -> bool:
+        is_token_valid: bool = False
         try:
-            payload = decodeJWT(jwtoken)
-            if "error" in payload:
-                logger.error(f"Invalid token: {payload['error']}")
-                return False
-            logger.debug(f"Decoded JWT payload: {payload}")
-            return payload
-        except Exception as e:
-            logger.error(f"Exception occurred while decoding JWT: {e}")
-            return False
+            payload = jwt_handler.decodeJWT(jwtoken)
+        except:
+            payload = None
+        if payload:
+            is_token_valid = True
+        return is_token_valid
  
 D:\Desktop\g_api\app\auth\jwt_handler.py 
 import time
@@ -552,16 +548,18 @@ def decodeJWT(token: str) -> Union[Dict, None]:
     :return: The decoded payload if the token is valid, otherwise an error message.
     """
     try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithm=[JWT_ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         logger.debug(f"Decoded token payload: {payload}")
         return payload
     except jwt.ExpiredSignatureError:
         logger.error("Token has expired")
         return {"error": "Token has expired"}
-    except jwt.InvalidTokenError:
-        logger.error(payload)
-        logger.error("Invalid token")
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid token: {e}")
         return {"error": "Invalid token"}
+    except Exception as e:
+        logger.error(f"Error occurred while decoding JWT: {e}")
+        return None
 
 def extract_jwt_username(token: str) -> str:
     """

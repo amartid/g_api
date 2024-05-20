@@ -12,7 +12,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 JWT_ALGORITHM = 'HS256'
 
 # Logging configuration
-logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO)
+# Get the logger from the main script or the configuration file
 logger = logging.getLogger(__name__)
 
 def signJWT(username: str, expiration: int = 3600) -> str:

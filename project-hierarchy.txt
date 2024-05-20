@@ -1,14 +1,182 @@
-GEO api
+g_api
+├─ .env
+├─ .git
+│  ├─ COMMIT_EDITMSG
+│  ├─ config
+│  ├─ description
+│  ├─ FETCH_HEAD
+│  ├─ HEAD
+│  ├─ hooks
+│  │  ├─ applypatch-msg.sample
+│  │  ├─ commit-msg.sample
+│  │  ├─ fsmonitor-watchman.sample
+│  │  ├─ post-update.sample
+│  │  ├─ pre-applypatch.sample
+│  │  ├─ pre-commit.sample
+│  │  ├─ pre-merge-commit.sample
+│  │  ├─ pre-push.sample
+│  │  ├─ pre-rebase.sample
+│  │  ├─ pre-receive.sample
+│  │  ├─ prepare-commit-msg.sample
+│  │  ├─ push-to-checkout.sample
+│  │  ├─ sendemail-validate.sample
+│  │  └─ update.sample
+│  ├─ index
+│  ├─ info
+│  │  └─ exclude
+│  ├─ logs
+│  │  ├─ HEAD
+│  │  └─ refs
+│  │     ├─ heads
+│  │     │  └─ main
+│  │     └─ remotes
+│  │        └─ g_api
+│  │           └─ main
+│  ├─ objects
+│  │  ├─ 03
+│  │  │  ├─ 0539d4ea31d802fa6dcd424487a7ffd14cb0c8
+│  │  │  └─ 71eb05d5c4eb27822d80540ff5ab996818032a
+│  │  ├─ 04
+│  │  │  ├─ cfb52aa29e59b286f380e8c692d91632e53f34
+│  │  │  └─ f81cf96dbf38484b63b42cdd41bd0777c28bc1
+│  │  ├─ 05
+│  │  │  └─ 1e45655aa7f6c521b7a4b761caeb8067f15d06
+│  │  ├─ 07
+│  │  │  └─ 3fdbcbb58eef5d0f13bbc825afce739762de97
+│  │  ├─ 0c
+│  │  │  └─ c0bcacc97937fa8a8f0de8f624758ca97c24ee
+│  │  ├─ 0d
+│  │  │  └─ deb635682e3c46be1d975dee248e402f7ab1e7
+│  │  ├─ 0f
+│  │  │  └─ 36c65d7ad6a6c03fe24e13f976d10ea8d93cf3
+│  │  ├─ 15
+│  │  │  └─ 047887874a5c4a8eb328cee94e35a0e798dd70
+│  │  ├─ 21
+│  │  │  └─ c4b4007ce83ad57e73a953cc872883c392c479
+│  │  ├─ 28
+│  │  │  └─ c6dd930d2f447901d269e0430fe2bf872169dd
+│  │  ├─ 2f
+│  │  │  └─ c57d4fbde7034b7803e55cdb841d0fb34a22d1
+│  │  ├─ 3f
+│  │  │  └─ c912ef97b40a9e5114ca1bdf5b533f6f5c0c60
+│  │  ├─ 46
+│  │  │  └─ 1dc8c461fe8cf79ff63d8b0093a230c4369676
+│  │  ├─ 4d
+│  │  │  └─ 6edda1cde255d1a0749032bd53ae4a0b501c07
+│  │  ├─ 4f
+│  │  │  └─ de0f92ff34a386025e2995a91b1b8bfb4ca8bf
+│  │  ├─ 50
+│  │  │  └─ 12cd0ae75e43c82487cf559eec125198beb28b
+│  │  ├─ 55
+│  │  │  └─ 84a401ef92ee7858bf7f3109b589d7244e9c82
+│  │  ├─ 60
+│  │  │  ├─ 68278f60d663038910eb45a9e0e5bc78be808b
+│  │  │  └─ bdd333563221d66cc73e7eaf257c961c6ce92c
+│  │  ├─ 62
+│  │  │  └─ 08cab58540a721e3a9996af200aff1deef9c11
+│  │  ├─ 64
+│  │  │  └─ 0330a9cda12ecb61881b9ea2d540c9fbf47265
+│  │  ├─ 67
+│  │  │  └─ 9a292794968b514f41b6085f4cd3cbf4e90b88
+│  │  ├─ 6a
+│  │  │  └─ c8b22f3bd8b5c68c182f5f48be38a1b1c55431
+│  │  ├─ 6b
+│  │  │  └─ ff06caf3835cce88a713a5938186eb9a6879bc
+│  │  ├─ 70
+│  │  │  └─ 2c47b980e6f57eabdef02f6b77737913bd45f6
+│  │  ├─ 78
+│  │  │  └─ db2f1650869a6bccd2e390f45d0314cd6c7ae1
+│  │  ├─ 79
+│  │  │  └─ 3c1262f7c23cae83b1c77c482c072c70f4a0b0
+│  │  ├─ 7f
+│  │  │  ├─ 1d44455421e451ae86af6601c44a97c128af67
+│  │  │  └─ 69439097b371a1aa021913336d63cf3300f8c4
+│  │  ├─ 8a
+│  │  │  ├─ 0b031453c3d244fbbf7f586acf8ba54e394f60
+│  │  │  └─ cde50dc0ebd798036cd2442e08cc2645a39ab9
+│  │  ├─ 96
+│  │  │  └─ 69d740de5a62ed15493f2a9f299224c089c768
+│  │  ├─ 99
+│  │  │  └─ 124b017c5695b7a82049c4db4ffc815379749d
+│  │  ├─ 9b
+│  │  │  ├─ 9b5cb51bdfbf6f12b88f299c8e99936b68e22d
+│  │  │  └─ e19a94be7502af40fd0194d075f819926a581d
+│  │  ├─ 9c
+│  │  │  └─ 2cbcaf1aeb5140706606cbe9bce0faa9a48bc0
+│  │  ├─ a0
+│  │  │  └─ 52c6d8310aaa354869ee6ea875aea87feabac2
+│  │  ├─ a3
+│  │  │  └─ a92f1ac3e7f7159e968f4bc8c86ac1bb24de49
+│  │  ├─ a8
+│  │  │  └─ baf2bfa505b80a134142965c7f79dc8cc85b1e
+│  │  ├─ b2
+│  │  │  └─ 7dc895763b65541f2f5f37e416f321a6446272
+│  │  ├─ b6
+│  │  │  ├─ e736d8d35179e9791ea4a3c779e32d83533103
+│  │  │  └─ f0b9f5867e8a0d5e52ceab66b1177533c462d5
+│  │  ├─ bb
+│  │  │  └─ 634a4018d2101ac0d42a06b3e2d8b405b86142
+│  │  ├─ c7
+│  │  │  └─ 1948f553f3bc200327e56e9a495eae4b27a828
+│  │  ├─ ca
+│  │  │  └─ 9a3f71c119ebac386c9538b2dc298c1e784b12
+│  │  ├─ cd
+│  │  │  └─ e5941f6acdde55257019e0f2fa6526252fdd6d
+│  │  ├─ d0
+│  │  │  ├─ 1744d25638e9bfe3843cce79f5e2ed962101ca
+│  │  │  └─ da62f5f627fcd53475689bd3a9c54f778a162e
+│  │  ├─ d1
+│  │  │  └─ d170c1199839af2a3a030fa7e3c0c865ba5ab2
+│  │  ├─ d2
+│  │  │  └─ f125f2cd1f2078a8fe8f6c6e6ab2287e539e58
+│  │  ├─ d5
+│  │  │  └─ b9a4562685eb7907a994c720f72bf18e52ffa0
+│  │  ├─ d6
+│  │  │  └─ 4f8dbf531de9913a250e745a8b3710f7a18671
+│  │  ├─ d7
+│  │  │  └─ afa7c52dae8a56b172dff5ee31833f0b0158a3
+│  │  ├─ e0
+│  │  │  └─ 9f82f5a2b1b477ae7221de8b66490e3029f505
+│  │  ├─ e6
+│  │  │  └─ 9de29bb2d1d6434b8b29ae775ad8c2e48c5391
+│  │  ├─ ee
+│  │  │  └─ 4c2a850440bfdb820ddf7e65daded5bb50851f
+│  │  ├─ f5
+│  │  │  └─ fb5fd4e31b282b766b4f5e49e72ff69f23505d
+│  │  ├─ fe
+│  │  │  └─ 74437589e18781268c9dea307e8be0e3fbac73
+│  │  ├─ info
+│  │  └─ pack
+│  └─ refs
+│     ├─ heads
+│     │  └─ main
+│     ├─ remotes
+│     │  └─ g_api
+│     │     └─ main
+│     └─ tags
 ├─ app
 │  ├─ auth
-│  │  ├─ auth.py
-│  │  └─ __init__.py
-│  ├─ database
-│  │  ├─ database.py
-│  │  └─ __init__.py
-│  ├─ models
+│  │  ├─ jwt_bearer.py
+│  │  ├─ jwt_handler.py
+│  │  └─ __pycache__
+│  │     ├─ jwt_bearer.cpython-39.pyc
+│  │     └─ jwt_handler.cpython-39.pyc
+│  ├─ config.py
+│  ├─ model.py
+│  └─ __pycache__
+│     └─ model.cpython-39.pyc
+├─ app_20240520_204614.log
+├─ database
+│  ├─ database.py
 │  ├─ models.py
-│  └─ __init__.py
-├─ logs
+│  ├─ output.txt
+│  ├─ __init__.py
+│  └─ __pycache__
+│     ├─ database.cpython-39.pyc
+│     ├─ models.cpython-39.pyc
+│     └─ __init__.cpython-39.pyc
+├─ favicon.ico
 ├─ main.py
-└─ requirements.txt
+├─ requirements.txt
+└─ __pycache__
+   └─ main.cpython-39.pyc

@@ -1,0 +1,14 @@
+GEO api
+├─ app
+│  ├─ auth
+│  │  ├─ auth.py
+│  │  └─ __init__.py
+│  ├─ database
+│  │  ├─ database.py
+│  │  └─ __init__.py
+│  ├─ models
+│  ├─ models.py
+│  └─ __init__.py
+├─ logs
+├─ main.py
+└─ requirements.txt
